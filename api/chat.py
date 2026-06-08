@@ -26,10 +26,10 @@ GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
 # ===== AGENT CONFIG =====
 AGENTS = {
-    'orchestrator': {'provider': 'groq', 'model': 'llama-3.3-70b-versatile'},
-    'search':       {'provider': 'groq', 'model': 'llama-3.3-70b-versatile'},
-    'code':         {'provider': 'groq', 'model': 'llama-3.3-70b-versatile'},
-    'analysis':     {'provider': 'groq', 'model': 'llama-3.3-70b-versatile'},
+    'orchestrator': {'provider': 'groq', 'model': 'llama-3.1-70b-versatile'},
+    'search':       {'provider': 'groq', 'model': 'llama-3.1-70b-versatile'},
+    'code':         {'provider': 'groq', 'model': 'llama-3.1-70b-versatile'},
+    'analysis':     {'provider': 'groq', 'model': 'llama-3.1-70b-versatile'},
 }
 
 _key_index = 0
