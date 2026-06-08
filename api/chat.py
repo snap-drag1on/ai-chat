@@ -13,13 +13,13 @@ CORS(app)
 # URGENT: Environment variable orqali o'rnating!
 # Vercel: Settings → Environment Variables → OPENROUTER_KEYS, GROQ_KEYS
 # Local: export OPENROUTER_KEYS="sk-or-v1-xxx,sk-or-v1-yyy"
-OPENROUTER_KEYS = os.environ.get('OPENROUTER_KEYS', '').split(',')
-GROQ_KEYS = os.environ.get('GROQ_KEYS', '').split(',')
+OPENROUTER_KEYS = [k for k in os.environ.get('OPENROUTER_KEYS', '').split(',') if k]
+GROQ_KEYS = [k for k in os.environ.get('GROQ_KEYS', '').split(',') if k]
 
-if not OPENROUTER_KEYS or OPENROUTER_KEYS == ['']:
-    raise Exception("OPENROUTER_KEYS environment variable is not set!")
-if not GROQ_KEYS or GROQ_KEYS == ['']:
-    raise Exception("GROQ_KEYS environment variable is not set!")
+if not OPENROUTER_KEYS:
+    print("WARNING: OPENROUTER_KEYS not set, will fall back if needed")
+if not GROQ_KEYS:
+    print("WARNING: GROQ_KEYS not set, will fall back if needed")
 
 OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
@@ -38,10 +38,14 @@ _groq_index = 0
 def next_key(provider):
     global _key_index, _groq_index
     if provider == 'openrouter':
+        if not OPENROUTER_KEYS:
+            raise Exception("No OpenRouter keys available")
         k = OPENROUTER_KEYS[_key_index % len(OPENROUTER_KEYS)]
         _key_index += 1
         return k
     else:
+        if not GROQ_KEYS:
+            raise Exception("No Groq keys available")
         k = GROQ_KEYS[_groq_index % len(GROQ_KEYS)]
         _groq_index += 1
         return k
