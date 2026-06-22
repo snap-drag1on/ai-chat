@@ -1,60 +1,117 @@
 # Multi-Agent AI Chat
 
-4 ta agent, 2 ta provider, 5 ta API kalit bilan ishlaydigan AI Chat.
+4 ta agent bilan ishlaydigan AI chat — har bir agent alohida vazifa bajaradi, natijalarni sintez qilib foydalanuvchiga yagona javob qaytaradi.
 
-## Local ishga tushirish
+## Nima qiladi?
 
-```bash
-./start.sh
+Foydalanuvchi bironta savol yozadi → backend 4 agentni ishga tushuradi:
+
+```
+Foydalanuvchi → Orchestrator → Search (parallel) + Code (parallel) → Analysis → Javob
 ```
 
-Yoki qo'lda:
+1. **Orchestrator** — savolni tahlil qiladi, qaysi agent nimani bajarishi kerakligini rejalashtiradi
+2. **Search** — ma'lumot qidirish, tadqiqot, faktlarni topish
+3. **Code** — kod yozish, misollar tayyorlash
+4. **Analysis** — barcha agent natijalarini birlashtirib, yakuniy javobni stream qilib yozadi
 
-```bash
-cd ai-chat
-pip3 install -r requirements.txt   # bir marta
-python3 api/chat.py                # yoki: ruby server.rb
+## Arxitektura
+
+```
+frontend (index.html)
+    ↓ POST /api/chat  (SSE)
+backend (api/chat.py)
+    ↓ parallel HTTP
+Groq API (llama-3.3-70b-versatile)
 ```
 
-Keyin http://localhost:3001
+- Frontend: bitta HTML fayl (CSS + JS ichida) — dark theme, pill composer, streaming, thinking steps
+- Backend: Python Flask yoki Ruby WEBrick — multi-agent orchestrator, SSE streaming, key rotation, provider fallback
+- API: OpenAI-compatible chat completions endpoint
 
-## Vercel ga yuklash
+## Agent Pipeline
+
+Har bir agent `llama-3.3-70b-versatile` modeli bilan ishlaydi (Groq bepul). Agar OpenRouter kalitlarida credit bo'lsa, avtomatik Claude/Gemini ga o'tadi.
+
+### Provider Fallback
+
+| Provider | Model | Holati |
+|----------|-------|--------|
+| Groq (primary) | llama-3.3-70b-versatile | Bepul, ishlaydi |
+| OpenRouter (fallback) | claude-3.5 / gemini-2.0 | Credit kerak |
+
+### Key Rotation
+
+5 ta API kalit aylanma tartibda ishlatiladi (round-robin). Agar bitta kalit limitga yetsa, keyingisiga o'tadi.
+
+## Fayllar
+
+| Fayl | Vazifasi |
+|------|----------|
+| `index.html` | Frontend (dark theme, streaming, thinking panel, source cards) |
+| `api/chat.py` | Python Flask backend (Vercel serverless) |
+| `server.rb` | Ruby WEBrick backend (local development) |
+| `vercel.json` | Vercel config (60s timeout, 512MB) |
+| `requirements.txt` | Python dependencies (flask, requests) |
+| `start.sh` | Local ishga tushirish skripti |
+| `.env.example` | Talab qilinadigan env var'lar |
+| `.env` | API kalitlar (commit qilinmaydi) |
+| `.gitignore` | .env ni ignore qiladi |
+
+## O'rnatish
+
+### Local
 
 ```bash
-# 1. GitHub ga push qiling
-git init
-git add .
-git commit -m "init"
-git remote add origin <your-repo-url>
+pip3 install -r requirements.txt
+python3 api/chat.py
+# → http://localhost:3001
+```
+
+Yoki Ruby bilan:
+```bash
+ruby server.rb
+# → http://localhost:3001
+```
+
+### Vercel
+
+```bash
+# GitHub repo yaratib, push qiling
+git init && git add . && git commit -m "init"
+git remote add origin https://github.com/USER/ai-chat.git
 git push -u origin main
 
-# 2. Vercel.com da import qiling
-#    - Framework: Other
-#    - Root: ai-chat/
-#    - Build: pip install -r requirements.txt
-#    - Output: api/chat.py
-
-# 3. Environment variables (optional):
-#    OPENROUTER_KEYS = sk-or-v1-xxx,sk-or-v1-yyy
-#    GROQ_KEYS = gsk_xxx,gsk_yyy
-
-# 4. Deploy
+# Vercel.com → Add New → Import repo
+# Framework: Other (vercel.json da belgilangan)
+# Env vars:
+#   GROQ_KEYS=gsk_xxx,gsk_yyy
 ```
 
-Yoki Vercel CLI bilan:
+## Environment Variables
 
-```bash
-npm i -g vercel
-vercel --prod
-```
+| Variable | Format | Kerak |
+|----------|--------|-------|
+| `GROQ_KEYS` | `gsk_xxx,gsk_yyy` | Ha (2 ta) |
+| `OPENROUTER_KEYS` | `sk-or-v1-xxx,sk-or-v1-yyy,sk-or-v1-zzz` | Yo'q (optional, credit kerak) |
 
-## Agents
+## SSE Events
 
-| Agent | Provider | Model |
-|-------|----------|-------|
-| orchestrator | Groq | llama-3.3-70b-versatile |
-| search | Groq | llama-3.3-70b-versatile |
-| code | Groq | llama-3.3-70b-versatile |
-| analysis | Groq | llama-3.3-70b-versatile |
+Backend frontendga quyidagi event'larni yuboradi:
 
-OpenRouter kalitlarida credit bo'lsa, avtomatik Claude/Gemini ga o'tadi.
+| Event | Ma'nosi |
+|-------|---------|
+| `thinking` | Agent ishlayapti (step, label, total) |
+| `agent_result` | Agent natijasi (JSON) |
+| `sources` | Manbalar (title, domain) |
+| `agent_stream_start` | Analysis agent streaming boshladi |
+| `token` | Yakuniy javob tokeni |
+| `error` | Xatolik |
+| `done` | Tugadi |
+
+## Send Button States
+
+3 xil holat:
+- 🎤 Mikrofon (bo'sh input)
+- ➡️ Yuborish (matn bor)
+- ⏹ Stop (ishlayapti)
